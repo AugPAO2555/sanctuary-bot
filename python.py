@@ -72,7 +72,7 @@ async def announce(interaction: discord.Interaction, topic: str, date: str, cont
         )
         return
 
-    LOGO = "<:GameZone_Full_Logo:1475409495856386139>"
+    LOGO = "<:GameZone_Icon:1475409581269057586>"
     LINE = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
     embed = discord.Embed(
