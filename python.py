@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os
+import asyncio
 
 TOKEN = os.getenv("TOKEN")
 
@@ -12,6 +13,78 @@ bot = commands.Bot(
     intents=intents
 )
 
+# ========================
+# /mailall ส่ง DM ทุกคน
+# ========================
+@bot.tree.command(name="mailall", description="ส่งจดหมายถึงสมาชิกทุกคนในเซิร์ฟเวอร์")
+@app_commands.describe(content="ข้อความในจดหมาย")
+async def mailall(interaction: discord.Interaction, content: str):
+
+    # อนุญาตเฉพาะแอดมิน
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "❌ ใช้ได้เฉพาะแอดมิน",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.send_message(
+        "📨 เริ่มกระบวนการส่งจดหมาย...",
+        ephemeral=True
+    )
+
+    members = [m for m in interaction.guild.members if not m.bot]
+    total = len(members)
+
+    success = 0
+    failed = 0
+
+    progress_msg = await interaction.followup.send(f"กำลังส่ง 0/{total}")
+
+    for index, member in enumerate(members, start=1):
+        try:
+            embed = discord.Embed(
+                description=(
+                    "﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚\n\n"
+                    "<:dns_c2o8:1369689361926328420> "
+                    "**มีใครบางคนแอบส่งจดหมายถึงคุณ...**\n\n"
+                    f">>> {content}"
+                ),
+                color=0x2f3136
+            )
+
+            embed.set_author(
+                name="Sanctuary Frontier Mail",
+                icon_url=LETTER_ICON
+            )
+
+            embed.set_footer(
+                text=f"จากทีมงาน • {interaction.guild.name}",
+                icon_url=interaction.guild.icon.url if interaction.guild.icon else None
+            )
+
+            await member.send(embed=embed)
+            success += 1
+
+        except:
+            failed += 1
+
+        # อัปเดตทุก 5 คน
+        if index % 5 == 0 or index == total:
+            await progress_msg.edit(
+                content=f"กำลังส่ง {index}/{total}"
+            )
+
+        await asyncio.sleep(0.4)  # เหมาะกับ 216 คน
+
+    await progress_msg.edit(
+        content=(
+            "✅ ส่งจดหมายครบแล้ว!\n"
+            f"สำเร็จ: {success}\n"
+            f"ส่งไม่ได้ (ปิด DM): {failed}"
+        )
+    )
+    
 # ========================
 # ตรวจสอบ permission
 # ========================
