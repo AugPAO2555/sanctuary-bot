@@ -13,7 +13,9 @@ bot = commands.Bot(
     intents=intents
 )
 
+# ใช้ลิงก์แบบไม่หมดอายุ
 LETTER_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478335298898362368/121_20260303171623.png"
+MAILBOX_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478333313038160072/120_20260303170821.png"
 
 # ========================
 # เมื่อ bot online
@@ -47,6 +49,7 @@ class OpenLetterView(discord.ui.View):
             color=0x2f3136
         )
 
+        # ✉️ ตอนเปิดแล้ว ใช้รูปซอง
         embed.set_author(
             name="Sanctuary Frontier Mail",
             icon_url=LETTER_ICON
@@ -126,9 +129,10 @@ async def letter(interaction: discord.Interaction, user: discord.Member, content
         color=0x2f3136
     )
 
+    # 📪 ยังไม่เปิด ใช้รูปตู้ไปรษณีย์
     embed.set_author(
         name="Sanctuary Frontier Mail",
-        icon_url=LETTER_ICON
+        icon_url=MAILBOX_ICON
     )
 
     embed.set_footer(
@@ -181,9 +185,10 @@ async def mailall(interaction: discord.Interaction, content: str):
                 color=0x2f3136
             )
 
+            # 📪 ยังไม่เปิด ใช้รูปตู้ไปรษณีย์
             embed.set_author(
                 name="Sanctuary Frontier Mail",
-                icon_url=LETTER_ICON
+                icon_url=MAILBOX_ICON
             )
 
             embed.set_footer(
