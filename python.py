@@ -40,10 +40,7 @@ class OpenLetterView(discord.ui.View):
     async def open_letter(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         embed = discord.Embed(
-            description=(
-                "﹒ˇ﹒__**You Got a Letter!**__ ﹒₊ ˚\n\n"
-                f">>> {self.content}"
-            ),
+            description=f"📨 คุณได้รับจดหมาย\n\n>>> {self.content}",
             color=0x2f3136
         )
 
@@ -53,7 +50,7 @@ class OpenLetterView(discord.ui.View):
         )
 
         embed.set_footer(
-            text=f"﹒from : {self.sender_name}﹒ㆍ﹒"
+            text=f"จาก : {self.sender_name}"
         )
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -69,7 +66,7 @@ async def ping(interaction: discord.Interaction):
     )
 
 # ========================
-# /announce
+# /announce (Admin Only)
 # ========================
 @bot.tree.command(name="announce", description="สร้างประกาศประชาสัมพันธ์")
 @app_commands.describe(
@@ -81,7 +78,7 @@ async def announce(interaction: discord.Interaction, topic: str, date: str, cont
 
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message(
-            "❌ เฉพาะ Admin เท่านั้น",
+            "❌ ใช้ได้เฉพาะ Admin เท่านั้น",
             ephemeral=True
         )
         return
@@ -92,8 +89,8 @@ async def announce(interaction: discord.Interaction, topic: str, date: str, cont
         description=(
             f"❮ ประชาสัมพันธ์ ❯\n\n"
             f"{LINE}\n\n"
-            f"( Topic | หัวข้อ ) : {topic}\n"
-            f"( Date | วันที่ ) : {date}\n\n"
+            f"( Topic ) : {topic}\n"
+            f"( Date ) : {date}\n\n"
             f"{content}\n\n"
             f"{LINE}"
         ),
@@ -117,39 +114,50 @@ async def announce(interaction: discord.Interaction, topic: str, date: str, cont
 )
 async def letter(interaction: discord.Interaction, user: discord.Member, content: str):
 
-    embed = discord.Embed(
-        description=(
-            "﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚\n\n"
-            "✉️ มีใครบางคนแอบส่งจดหมายถึงคุณ..."
-        ),
-        color=0x2f3136
-    )
+    try:
+        embed = discord.Embed(
+            description="✉️ มีใครบางคนส่งจดหมายถึงคุณ...\n\nกดปุ่มเพื่อเปิดอ่าน",
+            color=0x2f3136
+        )
 
-    embed.set_author(
-        name="Sanctuary Frontier Mail",
-        icon_url=LETTER_ICON
-    )
+        embed.set_author(
+            name="Sanctuary Frontier Mail",
+            icon_url=LETTER_ICON
+        )
 
-    embed.set_footer(
-        text=f"﹒dear : {user.name}﹒ㆍ﹒",
-        icon_url=user.display_avatar.url
-    )
+        embed.set_footer(
+            text=f"ถึง : {user.display_name}",
+            icon_url=user.display_avatar.url
+        )
 
-    view = OpenLetterView(content, interaction.user.display_name)
+        view = OpenLetterView(content, interaction.user.display_name)
 
-    await interaction.response.send_message("📨 ส่งจดหมายเรียบร้อยแล้ว!", ephemeral=True)
-    await user.send(embed=embed, view=view)
+        await user.send(embed=embed, view=view)
+
+        await interaction.response.send_message(
+            "📨 ส่งจดหมายเรียบร้อยแล้ว!",
+            ephemeral=True
+        )
+
+    except Exception:
+        await interaction.response.send_message(
+            "❌ ไม่สามารถส่ง DM ได้ (ผู้ใช้ปิด DM)",
+            ephemeral=True
+        )
 
 # ========================
 # /mailall (Admin Only)
 # ========================
-@bot.tree.command(
-    name="mailall",
-    description="ส่งจดหมายถึงสมาชิกทุกคน (Admin Only)",
-    default_permissions=discord.Permissions(administrator=True)
-)
+@bot.tree.command(name="mailall", description="ส่งจดหมายถึงสมาชิกทุกคน")
 @app_commands.describe(content="ข้อความในจดหมาย")
 async def mailall(interaction: discord.Interaction, content: str):
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "❌ ใช้ได้เฉพาะ Admin เท่านั้น",
+            ephemeral=True
+        )
+        return
 
     await interaction.response.send_message(
         "📨 เริ่มกระบวนการส่งจดหมาย...",
@@ -167,10 +175,7 @@ async def mailall(interaction: discord.Interaction, content: str):
     for index, member in enumerate(members, start=1):
         try:
             embed = discord.Embed(
-                description=(
-                    "﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚\n\n"
-                    "✉️ มีใครบางคนแอบส่งจดหมายถึงคุณ..."
-                ),
+                description="✉️ มีใครบางคนส่งจดหมายถึงคุณ...\n\nกดปุ่มเพื่อเปิดอ่าน",
                 color=0x2f3136
             )
 
@@ -180,7 +185,7 @@ async def mailall(interaction: discord.Interaction, content: str):
             )
 
             embed.set_footer(
-                text=f"﹒dear : {member.name}﹒ㆍ﹒",
+                text=f"ถึง : {member.display_name}",
                 icon_url=member.display_avatar.url
             )
 
@@ -189,7 +194,7 @@ async def mailall(interaction: discord.Interaction, content: str):
             await member.send(embed=embed, view=view)
             success += 1
 
-        except:
+        except Exception:
             failed += 1
 
         if index % 5 == 0 or index == total:
@@ -199,9 +204,9 @@ async def mailall(interaction: discord.Interaction, content: str):
 
     await progress_msg.edit(
         content=(
-            "✅ ส่งจดหมายครบแล้ว!\n"
+            f"✅ ส่งครบแล้ว\n"
             f"สำเร็จ: {success}\n"
-            f"ส่งไม่ได้ (ปิด DM): {failed}"
+            f"ล้มเหลว (ปิด DM): {failed}"
         )
     )
 
