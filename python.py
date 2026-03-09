@@ -13,7 +13,7 @@ bot = commands.Bot(
     intents=intents
 )
 
-ALLOWED_USER = 996318050682937395
+OWNER_ID = 996318050682937395
 
 # ========================
 # ICONS
@@ -33,7 +33,6 @@ DAY_IMAGES = {
 }
 
 thai_tz = timezone(timedelta(hours=7))
-
 songkran_data = {}
 
 # ========================
@@ -54,7 +53,7 @@ async def on_ready():
     print("============================")
 
 # ========================
-# HELP COMMAND
+# HELP
 # ========================
 
 @bot.tree.command(name="help", description="Help Desk")
@@ -68,11 +67,12 @@ _ _ _ _ _ _ _ _ _ _  ﹒ㆍ__**Help-desk**__ ﹒ㆍ﹒ _ _
 _ _
 
 * Main Command !
-  - -# **/set-economy**
-  - -# **/set-mail**
-  - -# **/set-tarot**
-  - -# **/songkran_login**
   - -# **/ping**
+  - -# **/status**
+  - -# **/letter**
+  - -# **/mail_all**
+  - -# **/announce**
+  - -# **/songkran_login**
 
 ```ยังเป็นระบบเบต้าอยู่คำสั่งเลยน้อย แต่จะพยายามใส่เข้ามาเพิ่มให้ได้เล่นกันนะคั้บ ( อย่าลืมเข้าดิสเพื่อเช็ค update )```
 """,
@@ -82,7 +82,40 @@ _ _
     await interaction.response.send_message(embed=embed)
 
 # ========================
-# VIEW เปิดจดหมาย
+# PING
+# ========================
+
+@bot.tree.command(name="ping", description="ตรวจสอบสถานะบอท")
+async def ping(interaction: discord.Interaction):
+
+    latency = round(bot.latency * 1000)
+    await interaction.response.send_message(f"Pong! 🏓\nLatency: {latency}ms")
+
+# ========================
+# STATUS
+# ========================
+
+@bot.tree.command(name="status", description="Player Status")
+async def status(interaction: discord.Interaction):
+
+    embed = discord.Embed(
+        description=(
+            f"👤 Username : {interaction.user.name}\n"
+            f"🆔 UID : 2026-00001\n\n"
+            f"💰 Money : 0\n"
+            f"💎 Gems : 0\n\n"
+            f"⭐ Level : 1\n"
+            f"📊 EXP : 0 / 100"
+        ),
+        color=0x2f3136
+    )
+
+    embed.set_thumbnail(url=interaction.user.display_avatar.url)
+
+    await interaction.response.send_message(embed=embed)
+
+# ========================
+# LETTER VIEW
 # ========================
 
 class OpenLetterView(discord.ui.View):
@@ -112,17 +145,78 @@ class OpenLetterView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ========================
-# PING
+# LETTER
 # ========================
 
-@bot.tree.command(name="ping", description="ตรวจสอบสถานะบอท")
-async def ping(interaction: discord.Interaction):
+@bot.tree.command(name="letter", description="ส่งจดหมาย")
+async def letter(interaction: discord.Interaction, user: discord.Member, message: str):
 
-    latency = round(bot.latency * 1000)
+    view = OpenLetterView(message, interaction.user.name)
 
-    await interaction.response.send_message(
-        f"Pong! 🏓\nLatency: {latency}ms"
+    embed = discord.Embed(
+        description="📬 คุณได้รับจดหมายใหม่!",
+        color=0x2f3136
     )
+
+    embed.set_thumbnail(url=MAILBOX_ICON)
+
+    await user.send(embed=embed, view=view)
+
+    await interaction.response.send_message("📩 ส่งจดหมายแล้ว", ephemeral=True)
+
+# ========================
+# MAIL ALL
+# ========================
+
+@bot.tree.command(name="mail_all", description="ส่งจดหมายทุกคน")
+async def mail_all(interaction: discord.Interaction, message: str):
+
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Owner only", ephemeral=True)
+        return
+
+    for member in interaction.guild.members:
+
+        if member.bot:
+            continue
+
+        try:
+            view = OpenLetterView(message, interaction.user.name)
+
+            embed = discord.Embed(
+                description="📬 คุณได้รับจดหมายจากเซิร์ฟเวอร์!",
+                color=0x2f3136
+            )
+
+            embed.set_thumbnail(url=MAILBOX_ICON)
+
+            await member.send(embed=embed, view=view)
+
+        except:
+            pass
+
+    await interaction.response.send_message("📨 ส่งจดหมายให้ทุกคนแล้ว", ephemeral=True)
+
+# ========================
+# ANNOUNCE
+# ========================
+
+@bot.tree.command(name="announce", description="ประกาศข้อความ")
+async def announce(interaction: discord.Interaction, message: str):
+
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ Owner only", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="📢 Announcement",
+        description=message,
+        color=0xff5555
+    )
+
+    await interaction.channel.send(embed=embed)
+
+    await interaction.response.send_message("✅ ประกาศแล้ว", ephemeral=True)
 
 # ========================
 # SONGKRAN LOGIN
@@ -131,26 +225,20 @@ async def ping(interaction: discord.Interaction):
 @bot.tree.command(name="songkran_login", description="💦 Songkran Login Event")
 async def songkran_login(interaction: discord.Interaction):
 
-    if interaction.user.id != ALLOWED_USER:
-        await interaction.response.send_message("❌ คำสั่งนี้ใช้ได้เฉพาะเจ้าของบอท", ephemeral=True)
-        return
-
     now = datetime.now(thai_tz)
 
-    if not (now.month == 4 and 9 <= now.day <= 15):
-        await interaction.response.send_message(
-            "💦 Event นี้ใช้ได้เฉพาะช่วง **9-15 เมษายน** เท่านั้น",
-            ephemeral=True
-        )
-        return
+    if interaction.user.id != OWNER_ID:
+        if not (now.month == 4 and 9 <= now.day <= 15):
+            await interaction.response.send_message(
+                "💦 Event นี้ใช้ได้เฉพาะช่วง **9-15 เมษายน**",
+                ephemeral=True
+            )
+            return
 
     user_id = interaction.user.id
 
     if user_id not in songkran_data:
-        songkran_data[user_id] = {
-            "points": 0,
-            "day": 1
-        }
+        songkran_data[user_id] = {"points": 0, "day": 1}
 
     data = songkran_data[user_id]
 
@@ -167,8 +255,7 @@ async def songkran_login(interaction: discord.Interaction):
         description=(
             f"﹒ˇ﹒{interaction.user.mention}﹒₊ ˚\n"
             f"﹒       __**Daily Log In**__﹒ㆍ﹒\n"
-            f"       ⵌ ได้รับ 1 point\n"
-            f"       ⵌ ล็อคอินต่อเนื่องเพื่อรับรางวัล\n\n"
+            f"       ⵌ ได้รับ 1 point\n\n"
             f"__**🔥 Points Streaks**__\n"
             f"<:Water_Gun:1478767447413624842> {data['points']}"
         ),
