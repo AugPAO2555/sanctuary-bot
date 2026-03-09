@@ -6,14 +6,14 @@ from datetime import datetime, timedelta, timezone
 
 TOKEN = os.getenv("TOKEN")
 
+OWNER_ID = 996318050682937395
+
 intents = discord.Intents.all()
 
 bot = commands.Bot(
     command_prefix="!",
     intents=intents
 )
-
-OWNER_ID = 996318050682937395
 
 # ========================
 # ICONS
@@ -36,21 +36,18 @@ thai_tz = timezone(timedelta(hours=7))
 songkran_data = {}
 
 # ========================
-# BOT READY
+# READY
 # ========================
 
 @bot.event
 async def on_ready():
-    print("============================")
-    print(f"Bot online: {bot.user}")
+    print("Bot Online:", bot.user)
 
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} commands")
+        print("Commands synced:", len(synced))
     except Exception as e:
         print("Sync error:", e)
-
-    print("============================")
 
 # ========================
 # HELP
@@ -85,11 +82,14 @@ _ _
 # PING
 # ========================
 
-@bot.tree.command(name="ping", description="ตรวจสอบสถานะบอท")
+@bot.tree.command(name="ping", description="Ping Bot")
 async def ping(interaction: discord.Interaction):
 
     latency = round(bot.latency * 1000)
-    await interaction.response.send_message(f"Pong! 🏓\nLatency: {latency}ms")
+
+    await interaction.response.send_message(
+        f"Pong 🏓 {latency}ms"
+    )
 
 # ========================
 # STATUS
@@ -99,14 +99,43 @@ async def ping(interaction: discord.Interaction):
 async def status(interaction: discord.Interaction):
 
     embed = discord.Embed(
-        description=(
-            f"👤 Username : {interaction.user.name}\n"
-            f"🆔 UID : 2026-00001\n\n"
-            f"💰 Money : 0\n"
-            f"💎 Gems : 0\n\n"
-            f"⭐ Level : 1\n"
-            f"📊 EXP : 0 / 100"
-        ),
+        description=f"""
+╭────────〔 Player Status 〕────────╮
+
+👤 Username : {interaction.user.name}
+🆔 UID : 2026-00001
+
+💰 Money : 0
+💎 Gems : 0
+
+⭐ Level : 1
+📊 EXP : 0 / 100
+▱▱▱▱▱▱▱▱▱▱
+
+────────────────
+
+📜 Quest
+
+Quest 1 : ส่งข้อความในดิส 10 ข้อความ
+Process
+• ▰▰▱▱▱▱▱▱▱▱ (2/10)
+
+Rewards
+• 50 EXP
+
+────────────────
+
+Quest 2 : อยู่ในห้อง VC 30 นาที
+
+Process
+• ▰▱▱▱▱▱▱▱▱▱ (3/30)
+
+Rewards
+• 100 EXP
+• 2 Gems
+
+╰──────────────────────────────╯
+""",
         color=0x2f3136
     )
 
@@ -115,7 +144,7 @@ async def status(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 # ========================
-# LETTER VIEW
+# LETTER BUTTON
 # ========================
 
 class OpenLetterView(discord.ui.View):
@@ -148,13 +177,13 @@ class OpenLetterView(discord.ui.View):
 # LETTER
 # ========================
 
-@bot.tree.command(name="letter", description="ส่งจดหมาย")
+@bot.tree.command(name="letter", description="Send Letter")
 async def letter(interaction: discord.Interaction, user: discord.Member, message: str):
 
     view = OpenLetterView(message, interaction.user.name)
 
     embed = discord.Embed(
-        description="📬 คุณได้รับจดหมายใหม่!",
+        description="📬 คุณได้รับจดหมายใหม่",
         color=0x2f3136
     )
 
@@ -162,17 +191,20 @@ async def letter(interaction: discord.Interaction, user: discord.Member, message
 
     await user.send(embed=embed, view=view)
 
-    await interaction.response.send_message("📩 ส่งจดหมายแล้ว", ephemeral=True)
+    await interaction.response.send_message(
+        ":aprove: : ใช้คำสั่งเสร็จสิ้น !",
+        ephemeral=True
+    )
 
 # ========================
 # MAIL ALL
 # ========================
 
-@bot.tree.command(name="mail_all", description="ส่งจดหมายทุกคน")
+@bot.tree.command(name="mail_all", description="Mail Everyone")
 async def mail_all(interaction: discord.Interaction, message: str):
 
     if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Owner only", ephemeral=True)
+        await interaction.response.send_message("Owner only", ephemeral=True)
         return
 
     for member in interaction.guild.members:
@@ -181,10 +213,11 @@ async def mail_all(interaction: discord.Interaction, message: str):
             continue
 
         try:
+
             view = OpenLetterView(message, interaction.user.name)
 
             embed = discord.Embed(
-                description="📬 คุณได้รับจดหมายจากเซิร์ฟเวอร์!",
+                description="📬 คุณได้รับจดหมายจากระบบ",
                 color=0x2f3136
             )
 
@@ -195,42 +228,59 @@ async def mail_all(interaction: discord.Interaction, message: str):
         except:
             pass
 
-    await interaction.response.send_message("📨 ส่งจดหมายให้ทุกคนแล้ว", ephemeral=True)
+    await interaction.response.send_message(
+        ":aprove: : ใช้คำสั่งเสร็จสิ้น !",
+        ephemeral=True
+    )
 
 # ========================
 # ANNOUNCE
 # ========================
 
-@bot.tree.command(name="announce", description="ประกาศข้อความ")
-async def announce(interaction: discord.Interaction, message: str):
+@bot.tree.command(name="announce", description="Announcement")
+async def announce(interaction: discord.Interaction, topic: str, date: str, detail: str):
 
     if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("❌ Owner only", ephemeral=True)
+        await interaction.response.send_message("Owner only", ephemeral=True)
         return
 
     embed = discord.Embed(
-        title="📢 Announcement",
-        description=message,
-        color=0xff5555
+        description=f"""
+ㅤㅤㅤㅤㅤㅤㅤ❮ ประชาสัมพันธ์ <:GameZone_Full_Logo:1475409495856386139> ❯ㅤㅤㅤㅤㅤㅤㅤ
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+
+( Topic | หัวข้อ ) : {topic}
+( Date | วันที่ ) : {date}
+
+{detail}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+""",
+        color=0x2f3136
     )
 
     await interaction.channel.send(embed=embed)
 
-    await interaction.response.send_message("✅ ประกาศแล้ว", ephemeral=True)
+    await interaction.response.send_message(
+        ":aprove: : ใช้คำสั่งเสร็จสิ้น !",
+        ephemeral=True
+    )
 
 # ========================
 # SONGKRAN LOGIN
 # ========================
 
-@bot.tree.command(name="songkran_login", description="💦 Songkran Login Event")
+@bot.tree.command(name="songkran_login", description="Songkran Event")
 async def songkran_login(interaction: discord.Interaction):
 
     now = datetime.now(thai_tz)
 
     if interaction.user.id != OWNER_ID:
         if not (now.month == 4 and 9 <= now.day <= 15):
+
             await interaction.response.send_message(
-                "💦 Event นี้ใช้ได้เฉพาะช่วง **9-15 เมษายน**",
+                "💦 Event ใช้ได้เฉพาะ 9-15 เมษายน",
                 ephemeral=True
             )
             return
@@ -252,13 +302,15 @@ async def songkran_login(interaction: discord.Interaction):
     current_day = data["day"]
 
     embed = discord.Embed(
-        description=(
-            f"﹒ˇ﹒{interaction.user.mention}﹒₊ ˚\n"
-            f"﹒       __**Daily Log In**__﹒ㆍ﹒\n"
-            f"       ⵌ ได้รับ 1 point\n\n"
-            f"__**🔥 Points Streaks**__\n"
-            f"<:Water_Gun:1478767447413624842> {data['points']}"
-        ),
+        description=f"""
+﹒ˇ﹒{interaction.user.mention}﹒₊ ˚
+﹒       __**Daily Log In**__﹒ㆍ﹒
+
+ⵌ ได้รับ 1 point
+
+🔥 Points Streaks
+<:Water_Gun:1478767447413624842> {data['points']}
+""",
         color=0x00bfff
     )
 
