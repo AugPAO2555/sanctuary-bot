@@ -3,110 +3,112 @@ from discord.ext import commands
 from discord import app_commands
 import json
 import random
-import datetime
 import os
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents.reactions = True
-
+intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-QUEST_FILE = "quests.json"
 USER_FILE = "users.json"
 
 APPROVED = "<:approved:1319887481403084854>"
-WAITING = "<:Waiting_for_approval:1393514897400135812>"
 DENIED = "<:denied:1319887409864900608>"
 
 
-# ---------------- JSON ----------------
+# ---------- JSON ----------
 
-def load(file):
+def load_users():
     try:
-        with open(file, "r", encoding="utf-8") as f:
+        with open(USER_FILE,"r") as f:
             return json.load(f)
     except:
         return {}
 
-def save(file, data):
-    with open(file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+def save_users(data):
+    with open(USER_FILE,"w") as f:
+        json.dump(data,f,indent=4)
 
 
-# ---------------- RESPONSE SYSTEM ----------------
+# ---------- QUESTS ----------
 
-async def denied(interaction, text):
-    await interaction.response.send_message(
-        f"{DENIED} : {text}",
-        ephemeral=True
-    )
+QUESTS = [
 
+{"name":"Send 5 messages","type":"message","goal":5},
 
-async def approved(interaction, text):
-    await interaction.response.send_message(
-        f"{APPROVED} : {text}"
-    )
+{"name":"React to a message","type":"reaction","goal":1},
+
+{"name":"Mention a member","type":"mention","goal":1}
+
+]
 
 
-# ---------------- READY ----------------
+# ---------- READY ----------
 
 @bot.event
 async def on_ready():
+
     await bot.tree.sync()
-    print(f"Bot Ready | {bot.user}")
+
+    print("Bot Ready")
 
 
-# ---------------- PING ----------------
+# ---------- HELP ----------
+
+@bot.tree.command(name="help")
+async def help_cmd(interaction: discord.Interaction):
+
+    embed = discord.Embed(
+        title="📖 Command Guide",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(
+        name="🎮 Quest",
+        value="""
+/dailyquest
+/process
+""",
+        inline=False
+    )
+
+    embed.add_field(
+        name="📢 Server",
+        value="""
+/announce
+/ping
+/help
+""",
+        inline=False
+    )
+
+    embed.add_field(
+        name="📩 Mail",
+        value="""
+/letter
+/mailall
+""",
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+# ---------- PING ----------
 
 @bot.tree.command(name="ping")
 async def ping(interaction: discord.Interaction):
 
     latency = round(bot.latency * 1000)
 
-    await interaction.response.send_message(
-f"""
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-🏓 Pong
-
-Latency : {latency} ms
-System : Online
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
+    embed = discord.Embed(
+        title="🏓 Pong",
+        description=f"Latency : {latency} ms",
+        color=discord.Color.green()
     )
 
-
-# ---------------- HELP ----------------
-
-@bot.tree.command(name="help")
-async def help_cmd(interaction: discord.Interaction):
-
-    await interaction.response.send_message(
-"""
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-📖 Command List
-
-🎮 Quest
-/dailyquest
-/process
-/complete
-/cancelquest
-
-📩 Mail
-/letter
-/mailall
-
-📢 Server
-/announce
-/ping
-/help
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
-    )
+    await interaction.response.send_message(embed=embed)
 
 
-# ---------------- ANNOUNCE ----------------
+# ---------- ANNOUNCE ----------
 
 @bot.tree.command(name="announce")
 @app_commands.describe(
@@ -114,174 +116,41 @@ topic="หัวข้อ",
 date="วันที่",
 message="รายละเอียด"
 )
-async def announce(
-interaction: discord.Interaction,
-topic: str,
-date: str,
-message: str
-):
+async def announce(interaction: discord.Interaction,topic:str,date:str,message:str):
 
     if not interaction.user.guild_permissions.administrator:
-        await denied(interaction,"คุณไม่มีสิทธิ์ใช้คำสั่งประกาศ")
+
+        await interaction.response.send_message(
+        f"{DENIED} : คุณไม่มีสิทธิ์ใช้คำสั่งนี้",
+        ephemeral=True
+        )
+
         return
-
-    text = f"""
-ㅤㅤㅤㅤㅤㅤㅤ❮ ประชาสัมพันธ์ ❯ㅤㅤㅤㅤㅤㅤㅤ
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-
-( Topic | หัวข้อ ) : {topic}
-( Date | วันที่ ) : {date}
-
-{message}
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
-
-    await interaction.response.send_message(text)
-
-
-# ---------------- QUEST LIST ----------------
-
-@bot.tree.command(name="questlist")
-async def questlist(interaction: discord.Interaction):
-
-    quests = load(QUEST_FILE)
-
-    text = "\n".join([f"📜 {q}" for q in quests])
-
-    await interaction.response.send_message(
-f"""
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-📜 Quest List
-
-{text}
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
-    )
-
-
-# ---------------- DAILY QUEST ----------------
-
-@bot.tree.command(name="dailyquest")
-async def dailyquest(interaction: discord.Interaction):
-
-    quests = load(QUEST_FILE)
-    users = load(USER_FILE)
-
-    uid = str(interaction.user.id)
-    today = str(datetime.date.today())
-
-    if uid not in users:
-        users[uid] = {"quests": [], "date": ""}
-
-    if users[uid]["date"] == today:
-        await denied(interaction,"คุณรับเควสวันนี้แล้ว")
-        return
-
-    quest = random.choice(list(quests.keys()))
-
-    users[uid]["quests"].append(quest)
-    users[uid]["date"] = today
-
-    save(USER_FILE, users)
-
-    await interaction.response.send_message(
-f"""
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-📜 Daily Quest
-
-Mission :
-{quest}
-
-Use /complete when finished
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
-    )
-
-
-# ---------------- PROCESS ----------------
-
-@bot.tree.command(name="process")
-async def process(interaction: discord.Interaction):
-
-    users = load(USER_FILE)
-    uid = str(interaction.user.id)
-
-    if uid not in users or not users[uid]["quests"]:
-        await denied(interaction,"คุณยังไม่มีเควสที่กำลังดำเนินการ")
-        return
-
-    text = "\n".join([f"📜 {q}" for q in users[uid]["quests"]])
-
-    await interaction.response.send_message(
-f"""
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-⏳ Quest In Progress
-
-{text}
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-"""
-    )
-
-
-# ---------------- COMPLETE ----------------
-
-@bot.tree.command(name="complete")
-@app_commands.describe(quest="ชื่อเควส")
-async def complete(interaction: discord.Interaction, quest: str):
-
-    users = load(USER_FILE)
-    uid = str(interaction.user.id)
-
-    if uid not in users or quest not in users[uid]["quests"]:
-        await denied(interaction,"ไม่พบเควสนี้ในรายการของคุณ")
-        return
-
-    users[uid]["quests"].remove(quest)
-
-    save(USER_FILE, users)
-
-    await approved(interaction,f"Quest Completed : {quest}")
-
-
-# ---------------- CANCEL QUEST ----------------
-
-@bot.tree.command(name="cancelquest")
-@app_commands.describe(quest="ชื่อเควส")
-async def cancelquest(interaction: discord.Interaction, quest: str):
-
-    users = load(USER_FILE)
-    uid = str(interaction.user.id)
-
-    if uid not in users or quest not in users[uid]["quests"]:
-        await denied(interaction,"ไม่พบเควสนี้")
-        return
-
-    users[uid]["quests"].remove(quest)
-
-    save(USER_FILE, users)
-
-    await approved(interaction,"ยกเลิกเควสสำเร็จ")
-
-
-# ---------------- LETTER ----------------
-
-@bot.tree.command(name="letter")
-@app_commands.describe(target="ผู้รับ",message="ข้อความ")
-async def letter(interaction: discord.Interaction,target: discord.Member,message: str):
 
     embed = discord.Embed(
-        title="📬 Sanctuary Frontier Mail",
-        description=f"""
-﹒ˇ﹒__Secret Sealed Just for You__﹒
+        title="📢 Announcement",
+        color=discord.Color.red()
+    )
 
-Dear {target.name}
+    embed.add_field(name="Topic",value=topic,inline=False)
+    embed.add_field(name="Date",value=date,inline=False)
+    embed.add_field(name="Message",value=message,inline=False)
 
-{message}
-""",
+    await interaction.response.send_message(embed=embed)
+
+
+# ---------- LETTER ----------
+
+@bot.tree.command(name="letter")
+@app_commands.describe(
+target="ผู้รับ",
+message="ข้อความ"
+)
+async def letter(interaction: discord.Interaction,target:discord.Member,message:str):
+
+    embed = discord.Embed(
+        title="📬 Secret Letter",
+        description=message,
         color=discord.Color.gold()
     )
 
@@ -289,21 +158,31 @@ Dear {target.name}
 
         await target.send(embed=embed)
 
-        await approved(interaction,"ส่งจดหมายเรียบร้อย")
+        await interaction.response.send_message(
+        f"{APPROVED} : ส่งจดหมายแล้ว"
+        )
 
     except:
 
-        await denied(interaction,"ไม่สามารถส่ง DM ได้")
+        await interaction.response.send_message(
+        f"{DENIED} : ไม่สามารถส่ง DM ได้",
+        ephemeral=True
+        )
 
 
-# ---------------- MAIL ALL ----------------
+# ---------- MAIL ALL ----------
 
 @bot.tree.command(name="mailall")
 @app_commands.describe(message="ข้อความ")
-async def mailall(interaction: discord.Interaction,message: str):
+async def mailall(interaction: discord.Interaction,message:str):
 
     if not interaction.user.guild_permissions.administrator:
-        await denied(interaction,"คุณไม่มีสิทธิ์ใช้คำสั่งนี้")
+
+        await interaction.response.send_message(
+        f"{DENIED} : คุณไม่มีสิทธิ์ใช้คำสั่งนี้",
+        ephemeral=True
+        )
+
         return
 
     count = 0
@@ -315,14 +194,99 @@ async def mailall(interaction: discord.Interaction,message: str):
 
         try:
 
-            await member.send(message)
+            embed = discord.Embed(
+                title="📬 Server Mail",
+                description=message,
+                color=discord.Color.orange()
+            )
+
+            await member.send(embed=embed)
 
             count += 1
 
         except:
             pass
 
-    await approved(interaction,f"ส่งจดหมายแล้ว {count} คน")
+    await interaction.response.send_message(
+    f"{APPROVED} : ส่งแล้ว {count} คน"
+    )
+
+
+# ---------- DAILY QUEST ----------
+
+@bot.tree.command(name="dailyquest")
+async def dailyquest(interaction: discord.Interaction):
+
+    users = load_users()
+
+    uid = str(interaction.user.id)
+
+    if uid not in users:
+
+        users[uid] = {"quest":None,"progress":0}
+
+    if users[uid]["quest"]:
+
+        await interaction.response.send_message(
+        f"{DENIED} : คุณมีเควสอยู่แล้ว",
+        ephemeral=True
+        )
+
+        return
+
+    quest = random.choice(QUESTS)
+
+    users[uid]["quest"] = quest
+    users[uid]["progress"] = 0
+
+    save_users(users)
+
+    embed = discord.Embed(
+        title="📜 Daily Quest",
+        description=f"""
+Mission : {quest['name']}
+
+Progress : 0/{quest['goal']}
+""",
+        color=discord.Color.green()
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+
+# ---------- PROCESS ----------
+
+@bot.tree.command(name="process")
+async def process(interaction: discord.Interaction):
+
+    users = load_users()
+
+    uid = str(interaction.user.id)
+
+    if uid not in users or not users[uid]["quest"]:
+
+        await interaction.response.send_message(
+        f"{DENIED} : คุณยังไม่มีเควส",
+        ephemeral=True
+        )
+
+        return
+
+    quest = users[uid]["quest"]
+
+    progress = users[uid]["progress"]
+
+    embed = discord.Embed(
+        title="⏳ Quest Progress",
+        description=f"""
+Mission : {quest['name']}
+
+Progress : {progress}/{quest['goal']}
+""",
+        color=discord.Color.orange()
+    )
+
+    await interaction.response.send_message(embed=embed)
 
 
 TOKEN = os.getenv("TOKEN")
