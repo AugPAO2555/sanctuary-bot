@@ -6,7 +6,12 @@ import random
 import os
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    help_command=None
+)
 
 USER_FILE = "users.json"
 
@@ -28,19 +33,44 @@ def save_users(data):
     with open(USER_FILE,"w") as f:
         json.dump(data,f,indent=4)
 
-# ---------- QUEST ----------
+def create_user(uid):
+
+    users = load_users()
+
+    if uid not in users:
+
+        users[uid] = {
+            "level":1,
+            "exp":0,
+            "gold":0,
+            "gem":0,
+            "quest":None,
+            "progress":0
+        }
+
+        save_users(users)
+
+    return users
+
+# ---------- QUEST LIST ----------
 
 QUESTS = [
+
 {"name":"Send 5 messages","type":"message","goal":5},
+
 {"name":"React to a message","type":"reaction","goal":1},
+
 {"name":"Mention a member","type":"mention","goal":1}
+
 ]
 
 # ---------- READY ----------
 
 @bot.event
 async def on_ready():
+
     await bot.tree.sync()
+
     print(f"Bot Online : {bot.user}")
 
 # ---------- PROGRESS BAR ----------
@@ -63,6 +93,7 @@ async def quest_complete(user, quest):
     users[uid]["exp"] += 10
 
     if users[uid]["exp"] >= 10:
+
         users[uid]["exp"] = 0
         users[uid]["level"] += 1
 
@@ -80,11 +111,11 @@ async def quest_complete(user, quest):
 
 <:notification:1420605475594043484>「QUEST SYSTEM ANNOUNCEMENT」<:notification:1420605475594043484>
 
-ท่านผู้กล้า : {user.mention}! ได้สำเร็จเควส **"{quest['name']}"** !?
+ท่านผู้กล้า : {user.mention}! ได้สำเร็จเควส **"{quest['name']}"**
 
 ได้รับรางวัล
-  - -# **10 Gold**
-  - -# **10 Exp**
+- **10 Gold**
+- **10 Exp**
 
 <:Wing1:1319892658835034195> **⊹˚ ︵‿︵‿︵‿︵‿︵‿︵‿︵‿︵‿︵‿︵ ˚⊹** <:Wing2:1319892647938232341>
 """)
@@ -94,23 +125,12 @@ async def quest_complete(user, quest):
 @bot.tree.command(name="status")
 async def status(interaction: discord.Interaction,target:discord.Member=None):
 
-    users = load_users()
-
     if not target:
         target = interaction.user
 
     uid = str(target.id)
 
-    if uid not in users:
-        users[uid] = {
-            "level":1,
-            "exp":0,
-            "gold":0,
-            "gem":0,
-            "quest":None,
-            "progress":0
-        }
-        save_users(users)
+    users = create_user(uid)
 
     user = users[uid]
 
@@ -122,28 +142,47 @@ async def status(interaction: discord.Interaction,target:discord.Member=None):
 
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 
-  - -# **❮ Username ❯**
-  {target}
+- **Username**
+{target}
 
-  - -# **❮ UID ❯**
-  {target.id}
+- **UID**
+{target.id}
 
-  - -# **❮ Level ❯**
-  {user['level']}
+- **Level**
+{user['level']}
 
-  - -# **❮ Exp ❯**
-  {user['exp']}
-  {bar} ({user['exp']}/10)
+- **Exp**
+{user['exp']}
+{bar} ({user['exp']}/10)
 
-  - -# **❮ Gold ❯**
-  {user['gold']}
+- **Gold**
+{user['gold']}
 
-  - -# **❮ Gem ❯**
-  {user['gem']}
+- **Gem**
+{user['gem']}
 
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
 """,
         color=discord.Color.blurple()
+    )
+
+    await interaction.response.send_message(embed=embed)
+
+# ---------- HELP ----------
+
+@bot.tree.command(name="help")
+async def help(interaction:discord.Interaction):
+
+    embed=discord.Embed(
+        title="Bot Commands",
+        description="""
+/status — ดูสถานะ
+/dailyquest — รับเควสรายวัน
+/process — ดู progress เควส
+/letter — ส่งจดหมาย
+/help — รายการคำสั่ง
+""",
+        color=discord.Color.green()
     )
 
     await interaction.response.send_message(embed=embed)
@@ -155,18 +194,18 @@ class LetterView(discord.ui.View):
     def __init__(self,message,sender):
 
         super().__init__(timeout=None)
-        self.message = message
-        self.sender = sender
+        self.message=message
+        self.sender=sender
 
-    @discord.ui.button(label="Open Letter",style=discord.ButtonStyle.primary,emoji="✉️")
+    @discord.ui.button(label="Open Letter",emoji="✉️",style=discord.ButtonStyle.primary)
     async def open_letter(self,interaction:discord.Interaction,button:discord.ui.Button):
 
         await interaction.response.send_message(f"""
 ﹒ˇ﹒__**Surprise! It’s..just bills**__ ﹒₊ ˚
 
--# **{self.message}**
+**{self.message}**
 
-. send by {self.sender.mention}
+send by {self.sender.mention}
 """,ephemeral=True)
 
 # ---------- LETTER ----------
@@ -174,19 +213,19 @@ class LetterView(discord.ui.View):
 @bot.tree.command(name="letter")
 async def letter(interaction:discord.Interaction,target:discord.Member,message:str):
 
-    embed = discord.Embed(
+    embed=discord.Embed(
         title="Sanctuary Frontier Mail",
         description=f"""
-﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚
+Secret Sealed Just for You
 
 ✉️ มีจดหมายถึงคุณ
 
-. Dear {target.mention}
+Dear {target.mention}
 """,
         color=discord.Color.gold()
     )
 
-    view = LetterView(message,interaction.user)
+    view=LetterView(message,interaction.user)
 
     await interaction.response.send_message(
         content=target.mention,
@@ -197,18 +236,16 @@ async def letter(interaction:discord.Interaction,target:discord.Member,message:s
 # ---------- DAILY QUEST ----------
 
 @bot.tree.command(name="dailyquest")
-async def dailyquest(interaction: discord.Interaction):
+async def dailyquest(interaction:discord.Interaction):
 
-    users = load_users()
-    uid = str(interaction.user.id)
+    uid=str(interaction.user.id)
 
-    if uid not in users:
-        users[uid]={"level":1,"exp":0,"gold":0,"gem":0,"quest":None,"progress":0}
+    users=create_user(uid)
 
     if users[uid]["quest"]:
 
         await interaction.response.send_message(
-        f"{DENIED} : คุณมีเควสอยู่แล้ว",
+        f"{DENIED} คุณมีเควสอยู่แล้ว",
         ephemeral=True
         )
         return
@@ -229,13 +266,14 @@ async def dailyquest(interaction: discord.Interaction):
 @bot.tree.command(name="process")
 async def process(interaction:discord.Interaction):
 
-    users=load_users()
     uid=str(interaction.user.id)
 
-    if uid not in users or not users[uid]["quest"]:
+    users=create_user(uid)
+
+    if not users[uid]["quest"]:
 
         await interaction.response.send_message(
-        f"{DENIED} : คุณยังไม่มีเควส",
+        f"{DENIED} คุณยังไม่มีเควส",
         ephemeral=True
         )
         return
@@ -247,15 +285,12 @@ async def process(interaction:discord.Interaction):
 
     embed=discord.Embed(
         description=f"""
-* __**‹ Quest-Process !**__ ⁺˖ ⸝⸝ 
+‹ Quest Process ›
 
-﹒ ㆍ**{interaction.user.name}**﹒ㆍ
-
-- -# **❮ Quest ❯**
+Quest
 {quest['name']}
 
-- -# **❮ Progress ❯**
-
+Progress
 {bar} ({progress}/{quest['goal']})
 """,
         color=discord.Color.orange()
@@ -278,12 +313,23 @@ async def on_message(message):
 
         quest=users[uid]["quest"]
 
+        # MESSAGE QUEST
         if quest["type"]=="message":
 
             users[uid]["progress"]+=1
 
-            if users[uid]["progress"]>=quest["goal"]:
-                await quest_complete(message.author,quest)
+        # MENTION QUEST
+        elif quest["type"]=="mention":
+
+            if message.mentions:
+
+                if message.mentions[0] != message.author:
+
+                    users[uid]["progress"]+=1
+
+        if users[uid]["progress"]>=quest["goal"]:
+
+            await quest_complete(message.author,quest)
 
     save_users(users)
 
@@ -307,9 +353,13 @@ async def on_reaction_add(reaction,user):
             users[uid]["progress"]+=1
 
             if users[uid]["progress"]>=quest["goal"]:
+
                 await quest_complete(user,quest)
 
     save_users(users)
 
+# ---------- RUN ----------
+
 TOKEN=os.getenv("TOKEN")
+
 bot.run(TOKEN)
