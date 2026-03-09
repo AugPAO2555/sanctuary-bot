@@ -1,321 +1,194 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import os
-from datetime import datetime, timedelta, timezone
-
-TOKEN = os.getenv("TOKEN")
-
-OWNER_ID = 996318050682937395
+import json
+import random
+import datetime
 
 intents = discord.Intents.all()
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-bot = commands.Bot(
-    command_prefix="!",
-    intents=intents
-)
+QUEST_FILE = "quests.json"
+USER_FILE = "users.json"
 
-# ========================
-# ICONS
-# ========================
+APPROVED = "<:approved:1319887481403084854>"
+WAITING = "<:Waiting_for_approval:1393514897400135812>"
+DENIED = "<:denied:1319887409864900608>"
 
-LETTER_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478335298898362368/121_20260303171623.png"
-MAILBOX_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478333313038160072/120_20260303170821.png"
 
-DAY_IMAGES = {
-    1: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771150661357639/126_20260304220611.jpg",
-    2: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771186421731418/126_20260304220631.jpg",
-    3: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771229774053398/126_20260304220648.jpg",
-    4: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771297621115022/126_20260304220657.jpg",
-    5: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771339257974914/126_20260304220706.jpg",
-    6: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771369310289941/126_20260304220712.jpg",
-    7: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771401484931184/126_20260304220717.jpg",
-}
+def load(file):
+    try:
+        with open(file, "r") as f:
+            return json.load(f)
+    except:
+        return {}
 
-thai_tz = timezone(timedelta(hours=7))
-songkran_data = {}
 
-# ========================
-# READY
-# ========================
+def save(file, data):
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
+
 
 @bot.event
 async def on_ready():
-    print("Bot Online:", bot.user)
+    await bot.tree.sync()
+    print("Bot Ready")
 
-    try:
-        synced = await bot.tree.sync()
-        print("Commands synced:", len(synced))
-    except Exception as e:
-        print("Sync error:", e)
 
-# ========================
-# HELP
-# ========================
+# รับเควสรายวัน
+@bot.tree.command(name="dailyquest")
+async def dailyquest(interaction: discord.Interaction):
 
-@bot.tree.command(name="help", description="Help Desk")
-async def help_cmd(interaction: discord.Interaction):
+    quests = load(QUEST_FILE)
+    users = load(USER_FILE)
 
-    embed = discord.Embed(
-        description="""
-_ _
-_ _ _ _ _ _ _ _ _ _  ﹒ㆍ__**Help-desk**__ ﹒ㆍ﹒ _ _
-~~                                 ~~
-_ _
+    uid = str(interaction.user.id)
+    today = str(datetime.date.today())
 
-* Main Command !
-  - -# **/ping**
-  - -# **/status**
-  - -# **/letter**
-  - -# **/mail_all**
-  - -# **/announce**
-  - -# **/songkran_login**
+    if uid not in users:
+        users[uid] = {
+            "completed": [],
+            "current": None,
+            "date": ""
+        }
 
-```ยังเป็นระบบเบต้าอยู่คำสั่งเลยน้อย แต่จะพยายามใส่เข้ามาเพิ่มให้ได้เล่นกันนะคั้บ ( อย่าลืมเข้าดิสเพื่อเช็ค update )```
-""",
-        color=0x2f3136
-    )
-
-    await interaction.response.send_message(embed=embed)
-
-# ========================
-# PING
-# ========================
-
-@bot.tree.command(name="ping", description="Ping Bot")
-async def ping(interaction: discord.Interaction):
-
-    latency = round(bot.latency * 1000)
-
-    await interaction.response.send_message(
-        f"Pong 🏓 {latency}ms"
-    )
-
-# ========================
-# STATUS
-# ========================
-
-@bot.tree.command(name="status", description="Player Status")
-async def status(interaction: discord.Interaction):
-
-    embed = discord.Embed(
-        description=f"""
-╭────────〔 Player Status 〕────────╮
-
-👤 Username : {interaction.user.name}
-🆔 UID : 2026-00001
-
-💰 Money : 0
-💎 Gems : 0
-
-⭐ Level : 1
-📊 EXP : 0 / 100
-▱▱▱▱▱▱▱▱▱▱
-
-────────────────
-
-📜 Quest
-
-Quest 1 : ส่งข้อความในดิส 10 ข้อความ
-Process
-• ▰▰▱▱▱▱▱▱▱▱ (2/10)
-
-Rewards
-• 50 EXP
-
-────────────────
-
-Quest 2 : อยู่ในห้อง VC 30 นาที
-
-Process
-• ▰▱▱▱▱▱▱▱▱▱ (3/30)
-
-Rewards
-• 100 EXP
-• 2 Gems
-
-╰──────────────────────────────╯
-""",
-        color=0x2f3136
-    )
-
-    embed.set_thumbnail(url=interaction.user.display_avatar.url)
-
-    await interaction.response.send_message(embed=embed)
-
-# ========================
-# LETTER BUTTON
-# ========================
-
-class OpenLetterView(discord.ui.View):
-
-    def __init__(self, content: str, sender_name: str):
-        super().__init__(timeout=None)
-        self.content = content
-        self.sender_name = sender_name
-
-    @discord.ui.button(label="เปิดจดหมาย", emoji="📩", style=discord.ButtonStyle.primary)
-    async def open_letter(self, interaction: discord.Interaction, button: discord.ui.Button):
-
-        embed = discord.Embed(
-            description=f"﹒ˇ﹒__**You Got a Letter!**__ ﹒₊ ˚\n\n>>> {self.content}",
-            color=0x2f3136
+    if users[uid]["date"] == today:
+        await interaction.response.send_message(
+            f"{DENIED} คุณรับเควสวันนี้แล้ว",
+            ephemeral=True
         )
-
-        embed.set_author(
-            name="Sanctuary Frontier Mail",
-            icon_url=LETTER_ICON
-        )
-
-        embed.set_footer(
-            text=f"﹒from : {self.sender_name}﹒ㆍ﹒"
-        )
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-# ========================
-# LETTER
-# ========================
-
-@bot.tree.command(name="letter", description="Send Letter")
-async def letter(interaction: discord.Interaction, user: discord.Member, message: str):
-
-    view = OpenLetterView(message, interaction.user.name)
-
-    embed = discord.Embed(
-        description="📬 คุณได้รับจดหมายใหม่",
-        color=0x2f3136
-    )
-
-    embed.set_thumbnail(url=MAILBOX_ICON)
-
-    await user.send(embed=embed, view=view)
-
-    await interaction.response.send_message(
-        ":aprove: : ใช้คำสั่งเสร็จสิ้น !",
-        ephemeral=True
-    )
-
-# ========================
-# MAIL ALL
-# ========================
-
-@bot.tree.command(name="mail_all", description="Mail Everyone")
-async def mail_all(interaction: discord.Interaction, message: str):
-
-    if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("Owner only", ephemeral=True)
         return
 
-    for member in interaction.guild.members:
+    available = [q for q in quests if q not in users[uid]["completed"]]
 
-        if member.bot:
-            continue
+    if not available:
+        users[uid]["completed"] = []
+        available = list(quests.keys())
 
-        try:
+    quest = random.choice(available)
 
-            view = OpenLetterView(message, interaction.user.name)
+    users[uid]["current"] = quest
+    users[uid]["date"] = today
 
-            embed = discord.Embed(
-                description="📬 คุณได้รับจดหมายจากระบบ",
-                color=0x2f3136
-            )
-
-            embed.set_thumbnail(url=MAILBOX_ICON)
-
-            await member.send(embed=embed, view=view)
-
-        except:
-            pass
+    save(USER_FILE, users)
 
     await interaction.response.send_message(
-        ":aprove: : ใช้คำสั่งเสร็จสิ้น !",
-        ephemeral=True
+        f"{WAITING} Daily Quest\n\n📜 {quest}"
     )
 
-# ========================
-# ANNOUNCE
-# ========================
 
-@bot.tree.command(name="announce", description="Announcement")
-async def announce(interaction: discord.Interaction, topic: str, date: str, detail: str):
+# ดูเควสที่กำลังทำ
+@bot.tree.command(name="process")
+async def process(interaction: discord.Interaction):
 
-    if interaction.user.id != OWNER_ID:
-        await interaction.response.send_message("Owner only", ephemeral=True)
+    users = load(USER_FILE)
+    uid = str(interaction.user.id)
+
+    if uid not in users or not users[uid]["current"]:
+        await interaction.response.send_message(
+            f"{DENIED} คุณยังไม่มีเควส",
+            ephemeral=True
+        )
         return
 
-    embed = discord.Embed(
-        description=f"""
-ㅤㅤㅤㅤㅤㅤㅤ❮ ประชาสัมพันธ์ <:GameZone_Full_Logo:1475409495856386139> ❯ㅤㅤㅤㅤㅤㅤㅤ
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-
-( Topic | หัวข้อ ) : {topic}
-( Date | วันที่ ) : {date}
-
-{detail}
-
-▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-""",
-        color=0x2f3136
-    )
-
-    await interaction.channel.send(embed=embed)
+    quest = users[uid]["current"]
 
     await interaction.response.send_message(
-        ":aprove: : ใช้คำสั่งเสร็จสิ้น !",
-        ephemeral=True
+        f"{WAITING} Quest in Progress\n\n📜 {quest}"
     )
 
-# ========================
-# SONGKRAN LOGIN
-# ========================
 
-@bot.tree.command(name="songkran_login", description="Songkran Event")
-async def songkran_login(interaction: discord.Interaction):
+# ส่งเควส
+@bot.tree.command(name="complete")
+async def complete(interaction: discord.Interaction):
 
-    now = datetime.now(thai_tz)
+    users = load(USER_FILE)
+    uid = str(interaction.user.id)
 
-    if interaction.user.id != OWNER_ID:
-        if not (now.month == 4 and 9 <= now.day <= 15):
+    if uid not in users or not users[uid]["current"]:
+        await interaction.response.send_message(
+            f"{DENIED} ไม่มีเควสให้ส่ง",
+            ephemeral=True
+        )
+        return
 
-            await interaction.response.send_message(
-                "💦 Event ใช้ได้เฉพาะ 9-15 เมษายน",
-                ephemeral=True
-            )
-            return
+    quest = users[uid]["current"]
 
-    user_id = interaction.user.id
+    users[uid]["completed"].append(quest)
+    users[uid]["current"] = None
 
-    if user_id not in songkran_data:
-        songkran_data[user_id] = {"points": 0, "day": 1}
+    save(USER_FILE, users)
 
-    data = songkran_data[user_id]
-
-    data["points"] += 1
-    data["day"] += 1
-
-    if data["day"] > 7:
-        data["day"] = 1
-        data["points"] = 0
-
-    current_day = data["day"]
-
-    embed = discord.Embed(
-        description=f"""
-﹒ˇ﹒{interaction.user.mention}﹒₊ ˚
-﹒       __**Daily Log In**__﹒ㆍ﹒
-
-ⵌ ได้รับ 1 point
-
-🔥 Points Streaks
-<:Water_Gun:1478767447413624842> {data['points']}
-""",
-        color=0x00bfff
+    await interaction.response.send_message(
+        f"{APPROVED} Quest Completed!\n📜 {quest}"
     )
 
-    embed.set_image(url=DAY_IMAGES.get(current_day, DAY_IMAGES[1]))
 
-    await interaction.response.send_message(embed=embed)
+# Owner เพิ่มเควส
+@bot.tree.command(name="addquest")
+@app_commands.describe(text="ชื่อเควส")
+async def addquest(interaction: discord.Interaction, text: str):
 
-bot.run(TOKEN)
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            f"{DENIED} Owner Only",
+            ephemeral=True
+        )
+        return
+
+    quests = load(QUEST_FILE)
+
+    quests[text] = True
+
+    save(QUEST_FILE, quests)
+
+    await interaction.response.send_message(
+        f"{APPROVED} เพิ่มเควสแล้ว\n📜 {text}"
+    )
+
+
+# Owner รีเซ็ตเควสผู้เล่น
+@bot.tree.command(name="resetquest")
+async def resetquest(interaction: discord.Interaction):
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            f"{DENIED} Owner Only",
+            ephemeral=True
+        )
+        return
+
+    save(USER_FILE, {})
+
+    await interaction.response.send_message(
+        f"{APPROVED} รีเซ็ตเควสทั้งหมดแล้ว"
+    )
+
+
+# ตรวจ Reaction
+@bot.event
+async def on_reaction_add(reaction, user):
+
+    if user.bot:
+        return
+
+    users = load(USER_FILE)
+    uid = str(user.id)
+
+    if uid not in users:
+        return
+
+    if users[uid]["current"] != "React to any message":
+        return
+
+    users[uid]["completed"].append(users[uid]["current"])
+    users[uid]["current"] = None
+
+    save(USER_FILE, users)
+
+    await reaction.message.channel.send(
+        f"{APPROVED} {user.mention} Quest Completed!"
+    )
+
+
+bot.run("YOUR_BOT_TOKEN")
