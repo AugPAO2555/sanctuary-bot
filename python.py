@@ -3,8 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import os
 import asyncio
-from datetime import datetime, timedelta
-import pytz
+from datetime import datetime, timedelta, timezone
 
 TOKEN = os.getenv("TOKEN")
 
@@ -33,7 +32,8 @@ DAY_IMAGES = {
     7: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771401484931184/126_20260304220717.jpg",
 }
 
-thai_tz = pytz.timezone("Asia/Bangkok")
+# เวลาไทย
+thai_tz = timezone(timedelta(hours=7))
 songkran_data = {}
 
 # ========================
@@ -43,7 +43,6 @@ songkran_data = {}
 async def on_ready():
     print("=================================")
     print(f"Bot online: {bot.user}")
-    print("Syncing slash commands...")
 
     try:
         synced = await bot.tree.sync()
@@ -66,10 +65,7 @@ class OpenLetterView(discord.ui.View):
     async def open_letter(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         embed = discord.Embed(
-            description=(
-                "﹒ˇ﹒__**You Got a Letter!**__ ﹒₊ ˚\n\n"
-                f">>> {self.content}"
-            ),
+            description=f"﹒ˇ﹒__**You Got a Letter!**__ ﹒₊ ˚\n\n>>> {self.content}",
             color=0x2f3136
         )
 
@@ -93,124 +89,6 @@ async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"Pong! 🏓\nLatency: {latency}ms")
 
 # ========================
-# /announce
-# ========================
-@bot.tree.command(name="announce", description="สร้างประกาศประชาสัมพันธ์")
-@app_commands.describe(topic="หัวข้อประกาศ", date="วันที่", content="เนื้อหาประกาศ")
-async def announce(interaction: discord.Interaction, topic: str, date: str, content: str):
-
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ เฉพาะ Admin เท่านั้น", ephemeral=True)
-        return
-
-    LOGO = "<:GameZone_Full_Logo:1475409495856386139>"
-    LINE = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
-
-    embed = discord.Embed(
-        description=(
-            f"ㅤㅤㅤㅤㅤㅤㅤ❮ Announcement {LOGO} ❯ㅤㅤㅤㅤㅤㅤㅤ\n\n"
-            f"{LINE}\n\n"
-            f"( Topic | หัวข้อ ) : {topic}\n"
-            f"( Date | วันที่ ) : {date}\n\n"
-            f"{content}\n\n"
-            f"{LINE}"
-        ),
-        color=0x2f3136
-    )
-
-    embed.set_footer(
-        text=f"ประกาศโดย {interaction.user.display_name}",
-        icon_url=interaction.user.display_avatar.url
-    )
-
-    await interaction.response.send_message(embed=embed)
-
-# ========================
-# /letter
-# ========================
-@bot.tree.command(name="letter", description="ส่งจดหมายลับถึงเพื่อน")
-@app_commands.describe(user="ผู้รับจดหมาย", content="ข้อความในจดหมาย")
-async def letter(interaction: discord.Interaction, user: discord.Member, content: str):
-
-    embed = discord.Embed(
-        description=(
-            "﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚\n\n"
-            "✉️ **มีใครบางคนแอบส่งจดหมายถึงคุณ...**"
-        ),
-        color=0x2f3136
-    )
-
-    embed.set_author(name="Sanctuary Frontier Mail", icon_url=MAILBOX_ICON)
-
-    embed.set_footer(
-        text=f"﹒dear : {user.name}﹒ㆍ﹒",
-        icon_url=user.display_avatar.url
-    )
-
-    view = OpenLetterView(content, interaction.user.display_name)
-
-    try:
-        await user.send(embed=embed, view=view)
-        await interaction.response.send_message("📨 ส่งจดหมายเรียบร้อยแล้ว!", ephemeral=True)
-    except Exception:
-        await interaction.response.send_message("❌ ผู้ใช้ปิด DM", ephemeral=True)
-
-# ========================
-# /mailall
-# ========================
-@bot.tree.command(name="mailall", description="ส่งจดหมายถึงสมาชิกทุกคน")
-@app_commands.describe(content="ข้อความในจดหมาย")
-async def mailall(interaction: discord.Interaction, content: str):
-
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ ใช้ได้เฉพาะ Admin เท่านั้น", ephemeral=True)
-        return
-
-    await interaction.response.send_message("📨 เริ่มกระบวนการส่งจดหมาย...", ephemeral=True)
-
-    members = [m for m in interaction.guild.members if not m.bot]
-    total = len(members)
-
-    success = 0
-    failed = 0
-
-    progress_msg = await interaction.followup.send(f"กำลังส่ง 0/{total}")
-
-    for index, member in enumerate(members, start=1):
-        try:
-            embed = discord.Embed(
-                description=(
-                    "﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚\n\n"
-                    "✉️ **มีใครบางคนแอบส่งจดหมายถึงคุณ...**"
-                ),
-                color=0x2f3136
-            )
-
-            embed.set_author(name="Sanctuary Frontier Mail", icon_url=MAILBOX_ICON)
-
-            embed.set_footer(
-                text=f"﹒dear : {member.name}﹒ㆍ﹒",
-                icon_url=member.display_avatar.url
-            )
-
-            view = OpenLetterView(content, interaction.user.display_name)
-
-            await member.send(embed=embed, view=view)
-            success += 1
-
-        except Exception:
-            failed += 1
-
-        if index % 5 == 0 or index == total:
-            await progress_msg.edit(content=f"กำลังส่ง {index}/{total}")
-
-        await asyncio.sleep(0.4)
-
-    await progress_msg.edit(
-        content=f"✅ ส่งจดหมายครบแล้ว!\nสำเร็จ: {success}\nส่งไม่ได้ (ปิด DM): {failed}"
-    )
-
-# ========================
 # /songkran_login
 # ========================
 @bot.tree.command(name="songkran_login", description="💦 Songkran Daily Login")
@@ -226,8 +104,7 @@ async def songkran_login(interaction: discord.Interaction):
 
     if data["last_login"] == today:
         embed = discord.Embed(description="💦 วันนี้คุณรับไปแล้ว!", color=0xffcc00)
-        img = DAY_IMAGES.get(data["streak"], DAY_IMAGES[1])
-        embed.set_image(url=img)
+        embed.set_image(url=DAY_IMAGES.get(data["streak"], DAY_IMAGES[1]))
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
@@ -254,12 +131,8 @@ async def songkran_login(interaction: discord.Interaction):
         color=0x00bfff
     )
 
-    img = DAY_IMAGES.get(current_day, DAY_IMAGES[1])
-    embed.set_image(url=img)
+    embed.set_image(url=DAY_IMAGES.get(current_day, DAY_IMAGES[1]))
 
     await interaction.response.send_message(embed=embed)
 
-# ========================
-# RUN BOT
-# ========================
 bot.run(TOKEN)
