@@ -4,8 +4,13 @@ from discord import app_commands
 import json
 import random
 import datetime
+import os
 
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.reactions = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 QUEST_FILE = "quests.json"
@@ -18,25 +23,30 @@ DENIED = "<:denied:1319887409864900608>"
 
 def load(file):
     try:
-        with open(file, "r") as f:
+        with open(file, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
         return {}
 
 
 def save(file, data):
-    with open(file, "w") as f:
+    with open(file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
 
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
-    print("Bot Ready")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands")
+    except Exception as e:
+        print(e)
+
+    print(f"Bot Ready | {bot.user}")
 
 
 # รับเควสรายวัน
-@bot.tree.command(name="dailyquest")
+@bot.tree.command(name="dailyquest", description="รับเควสรายวัน")
 async def dailyquest(interaction: discord.Interaction):
 
     quests = load(QUEST_FILE)
@@ -73,12 +83,12 @@ async def dailyquest(interaction: discord.Interaction):
     save(USER_FILE, users)
 
     await interaction.response.send_message(
-        f"{WAITING} Daily Quest\n\n📜 {quest}"
+        f"{WAITING} **Daily Quest**\n\n📜 {quest}"
     )
 
 
 # ดูเควสที่กำลังทำ
-@bot.tree.command(name="process")
+@bot.tree.command(name="process", description="ดูเควสที่กำลังทำ")
 async def process(interaction: discord.Interaction):
 
     users = load(USER_FILE)
@@ -94,12 +104,12 @@ async def process(interaction: discord.Interaction):
     quest = users[uid]["current"]
 
     await interaction.response.send_message(
-        f"{WAITING} Quest in Progress\n\n📜 {quest}"
+        f"{WAITING} **Quest in Progress**\n\n📜 {quest}"
     )
 
 
 # ส่งเควส
-@bot.tree.command(name="complete")
+@bot.tree.command(name="complete", description="ส่งเควส")
 async def complete(interaction: discord.Interaction):
 
     users = load(USER_FILE)
@@ -120,12 +130,12 @@ async def complete(interaction: discord.Interaction):
     save(USER_FILE, users)
 
     await interaction.response.send_message(
-        f"{APPROVED} Quest Completed!\n📜 {quest}"
+        f"{APPROVED} **Quest Completed!**\n📜 {quest}"
     )
 
 
 # Owner เพิ่มเควส
-@bot.tree.command(name="addquest")
+@bot.tree.command(name="addquest", description="เพิ่มเควส")
 @app_commands.describe(text="ชื่อเควส")
 async def addquest(interaction: discord.Interaction, text: str):
 
@@ -147,8 +157,8 @@ async def addquest(interaction: discord.Interaction, text: str):
     )
 
 
-# Owner รีเซ็ตเควสผู้เล่น
-@bot.tree.command(name="resetquest")
+# Owner รีเซ็ตเควส
+@bot.tree.command(name="resetquest", description="รีเซ็ตเควสทั้งหมด")
 async def resetquest(interaction: discord.Interaction):
 
     if not interaction.user.guild_permissions.administrator:
@@ -165,7 +175,7 @@ async def resetquest(interaction: discord.Interaction):
     )
 
 
-# ตรวจ Reaction
+# ตรวจ Reaction Quest
 @bot.event
 async def on_reaction_add(reaction, user):
 
@@ -191,4 +201,9 @@ async def on_reaction_add(reaction, user):
     )
 
 
-bot.run("YOUR_BOT_TOKEN")
+TOKEN = os.getenv("TOKEN")
+
+if not TOKEN:
+    print("TOKEN NOT FOUND")
+
+bot.run(TOKEN)
