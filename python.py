@@ -77,8 +77,10 @@ async def on_ready():
 
 def progress_bar(progress, goal):
 
-    percent = progress/goal
-    filled = int(percent*10)
+    progress = min(progress, goal)
+
+    percent = progress / goal
+    filled = int(percent * 10)
 
     return "▰"*filled + "▱"*(10-filled)
 
@@ -92,9 +94,8 @@ async def quest_complete(user, quest):
     users[uid]["gold"] += 10
     users[uid]["exp"] += 10
 
-    if users[uid]["exp"] >= 10:
-
-        users[uid]["exp"] = 0
+    while users[uid]["exp"] >= 10:
+        users[uid]["exp"] -= 10
         users[uid]["level"] += 1
 
     users[uid]["quest"] = None
@@ -114,8 +115,8 @@ async def quest_complete(user, quest):
 ท่านผู้กล้า : {user.mention}! ได้สำเร็จเควส **"{quest['name']}"**
 
 ได้รับรางวัล
-- **10 Gold**
-- **10 Exp**
+- -# **10 Gold**
+- -# **10 Exp**
 
 <:Wing1:1319892658835034195> **⊹˚ ︵‿︵‿︵‿︵‿︵‿︵‿︵‿︵‿︵‿︵ ˚⊹** <:Wing2:1319892647938232341>
 """)
@@ -205,7 +206,7 @@ class LetterView(discord.ui.View):
 
 **{self.message}**
 
-send by {self.sender.mention}
+. send by {self.sender.mention}
 """,ephemeral=True)
 
 # ---------- LETTER ----------
@@ -220,7 +221,7 @@ Secret Sealed Just for You
 
 ✉️ มีจดหมายถึงคุณ
 
-Dear {target.mention}
+. Dear {target.mention}
 """,
         color=discord.Color.gold()
     )
@@ -279,7 +280,8 @@ async def process(interaction:discord.Interaction):
         return
 
     quest=users[uid]["quest"]
-    progress=users[uid]["progress"]
+
+    progress=min(users[uid]["progress"],quest["goal"])
 
     bar=progress_bar(progress,quest["goal"])
 
@@ -313,21 +315,23 @@ async def on_message(message):
 
         quest=users[uid]["quest"]
 
-        # MESSAGE QUEST
+        if users[uid]["progress"] >= quest["goal"]:
+            await bot.process_commands(message)
+            return
+
         if quest["type"]=="message":
 
             users[uid]["progress"]+=1
 
-        # MENTION QUEST
         elif quest["type"]=="mention":
 
-            if message.mentions:
+            if message.mentions and message.mentions[0] != message.author:
 
-                if message.mentions[0] != message.author:
-
-                    users[uid]["progress"]+=1
+                users[uid]["progress"]+=1
 
         if users[uid]["progress"]>=quest["goal"]:
+
+            users[uid]["progress"]=quest["goal"]
 
             await quest_complete(message.author,quest)
 
@@ -348,11 +352,16 @@ async def on_reaction_add(reaction,user):
 
         quest=users[uid]["quest"]
 
+        if users[uid]["progress"] >= quest["goal"]:
+            return
+
         if quest["type"]=="reaction":
 
             users[uid]["progress"]+=1
 
             if users[uid]["progress"]>=quest["goal"]:
+
+                users[uid]["progress"]=quest["goal"]
 
                 await quest_complete(user,quest)
 
