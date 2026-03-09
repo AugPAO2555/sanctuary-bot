@@ -13,6 +13,63 @@ USER_FILE = "users.json"
 APPROVED = "<:approved:1319887481403084854>"
 DENIED = "<:denied:1319887409864900608>"
 
+# --------- Status ----------
+
+@bot.tree.command(name="status", description="ดูสถานะผู้เล่น")
+async def status(interaction: discord.Interaction, target: discord.Member = None):
+
+    users = load_users()
+
+    if target is None:
+        target = interaction.user
+
+    uid = str(target.id)
+
+    if uid not in users:
+        users[uid] = {
+            "uid": f"2026-{str(len(users)+1).zfill(5)}",
+            "level": 1,
+            "exp": 0,
+            "gold": 0,
+            "gem": 0
+        }
+        save_users(users)
+
+    user = users[uid]
+
+    # progress bar
+    exp = user["exp"]
+    bar_filled = int((exp / 10) * 10)
+    bar = "█" * bar_filled + "░" * (10 - bar_filled)
+
+    embed = discord.Embed(
+        description=f"""
+* __**‹ Status!**__ ⁺˖ ⸝⸝ 
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+
+  - -# **❮ Username | ชื่อผู้ใช้บัญชีดิสคอร์ด ❯** :
+  {target.name}
+
+  - -# **❮ UID ❯** : {user['uid']}
+
+  - -# **❮ Level | เลเวล ❯** : {user['level']}
+
+  - -# **❮ Exp | ค่าประสบการณ์ ❯** : {user['exp']}
+  {bar} ({user['exp']}/10)
+
+  - -# **❮ Gold | เงิน ❯** : {user['gold']}
+
+  - -# **❮ Gem | เพชร ❯** : {user['gem']}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+""",
+        color=discord.Color.blurple()
+    )
+
+    embed.set_thumbnail(url=target.display_avatar.url)
+
+    await interaction.response.send_message(embed=embed)
 
 # ---------- JSON ----------
 
@@ -27,7 +84,6 @@ def save_users(data):
     with open(USER_FILE,"w") as f:
         json.dump(data,f,indent=4)
 
-
 # ---------- QUESTS ----------
 
 QUESTS = [
@@ -40,7 +96,6 @@ QUESTS = [
 
 ]
 
-
 # ---------- READY ----------
 
 @bot.event
@@ -48,49 +103,39 @@ async def on_ready():
 
     await bot.tree.sync()
 
-    print("Bot Ready")
-
+    print(f"Bot Online : {bot.user}")
 
 # ---------- HELP ----------
 
-@bot.tree.command(name="help")
+@bot.tree.command(name="help", description="Help Desk")
 async def help_cmd(interaction: discord.Interaction):
 
     embed = discord.Embed(
-        title="📖 Command Guide",
+        description="""
+_ _
+_ _ _ _ _ _ _ _ _ _ ﹒ㆍ__**Help-desk**__ ﹒ㆍ﹒ _ _
+~~                                 ~~
+_ _
+* คำสั่งหลัก!
+  - -# **/set-economy**
+  - -# **/set-mail**
+  - -# **/set-tarot**
+  - -# **/reset**
+
+* คำสั่งเฉพาะแอดมิน!
+
+
+```ยังเป็นระบบเบต้าอยู่คำสั่งเลยน้อย แต่จะพยายามใส่เข้ามาเพิ่มให้ได้เล่นกันนะคั้บ ( อย่าลืมเข้าดิสเพื่อเช็ค update )```
+""",
         color=discord.Color.blue()
     )
 
-    embed.add_field(
-        name="🎮 Quest",
-        value="""
-/dailyquest
-/process
-""",
-        inline=False
-    )
-
-    embed.add_field(
-        name="📢 Server",
-        value="""
-/announce
-/ping
-/help
-""",
-        inline=False
-    )
-
-    embed.add_field(
-        name="📩 Mail",
-        value="""
-/letter
-/mailall
-""",
-        inline=False
+    embed.set_footer(
+        text=f"Help requested by {interaction.user}",
+        icon_url=interaction.user.display_avatar.url
     )
 
     await interaction.response.send_message(embed=embed)
-
 
 # ---------- PING ----------
 
@@ -107,12 +152,11 @@ async def ping(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
-
 # ---------- ANNOUNCE ----------
 
 @bot.tree.command(name="announce")
 @app_commands.describe(
-topic="หัวข้อ",
+topic="หัวข้อประกาศ",
 date="วันที่",
 message="รายละเอียด"
 )
@@ -128,29 +172,43 @@ async def announce(interaction: discord.Interaction,topic:str,date:str,message:s
         return
 
     embed = discord.Embed(
-        title="📢 Announcement",
+        description=f"""
+ㅤㅤㅤㅤㅤㅤㅤ❮ ประชาสัมพันธ์ <:GameZone_Full_Logo:1475409495856386139> ❯ㅤㅤㅤㅤㅤㅤㅤ
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+
+( Topic | หัวข้อ ) : {topic}
+( Date | วันที่ ) : {date}
+
+{message}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+""",
         color=discord.Color.red()
     )
 
-    embed.add_field(name="Topic",value=topic,inline=False)
-    embed.add_field(name="Date",value=date,inline=False)
-    embed.add_field(name="Message",value=message,inline=False)
+    embed.set_footer(
+        text=f"Send by {interaction.user}",
+        icon_url=interaction.user.display_avatar.url
+    )
 
     await interaction.response.send_message(embed=embed)
-
 
 # ---------- LETTER ----------
 
 @bot.tree.command(name="letter")
-@app_commands.describe(
-target="ผู้รับ",
-message="ข้อความ"
-)
+@app_commands.describe(target="ผู้รับ",message="ข้อความ")
 async def letter(interaction: discord.Interaction,target:discord.Member,message:str):
 
     embed = discord.Embed(
-        title="📬 Secret Letter",
-        description=message,
+        title="Sanctuary Frontier Mail",
+        description=f"""
+﹒ˇ﹒__**Secret Sealed Just for You**__ ﹒₊ ˚
+
+✉️ **มีใครบางคนแอบส่งจดหมายถึงคุณ...**
+
+{message}
+""",
         color=discord.Color.gold()
     )
 
@@ -159,7 +217,7 @@ async def letter(interaction: discord.Interaction,target:discord.Member,message:
         await target.send(embed=embed)
 
         await interaction.response.send_message(
-        f"{APPROVED} : ส่งจดหมายแล้ว"
+        f"{APPROVED} : ใช้คำสั่งเสร็จสิ้น !"
         )
 
     except:
@@ -168,7 +226,6 @@ async def letter(interaction: discord.Interaction,target:discord.Member,message:
         f"{DENIED} : ไม่สามารถส่ง DM ได้",
         ephemeral=True
         )
-
 
 # ---------- MAIL ALL ----------
 
@@ -195,7 +252,7 @@ async def mailall(interaction: discord.Interaction,message:str):
         try:
 
             embed = discord.Embed(
-                title="📬 Server Mail",
+                title="Sanctuary Frontier Mail",
                 description=message,
                 color=discord.Color.orange()
             )
@@ -211,14 +268,12 @@ async def mailall(interaction: discord.Interaction,message:str):
     f"{APPROVED} : ส่งแล้ว {count} คน"
     )
 
-
 # ---------- DAILY QUEST ----------
 
 @bot.tree.command(name="dailyquest")
 async def dailyquest(interaction: discord.Interaction):
 
     users = load_users()
-
     uid = str(interaction.user.id)
 
     if uid not in users:
@@ -242,17 +297,19 @@ async def dailyquest(interaction: discord.Interaction):
     save_users(users)
 
     embed = discord.Embed(
-        title="📜 Daily Quest",
         description=f"""
-Mission : {quest['name']}
+﹒ㆍ﹒__**Quest System!**__﹒ㆍ﹒
 
-Progress : 0/{quest['goal']}
+{APPROVED}﹕ __**รับเควสเรียบร้อย!**__
+
+```{quest['name']}```
+
+- -# **︶︶︶︶︶︶︶︶︶**
 """,
         color=discord.Color.green()
     )
 
     await interaction.response.send_message(embed=embed)
-
 
 # ---------- PROCESS ----------
 
@@ -260,7 +317,6 @@ Progress : 0/{quest['goal']}
 async def process(interaction: discord.Interaction):
 
     users = load_users()
-
     uid = str(interaction.user.id)
 
     if uid not in users or not users[uid]["quest"]:
@@ -273,21 +329,65 @@ async def process(interaction: discord.Interaction):
         return
 
     quest = users[uid]["quest"]
-
     progress = users[uid]["progress"]
 
     embed = discord.Embed(
-        title="⏳ Quest Progress",
         description=f"""
-Mission : {quest['name']}
+* __**‹ Quest-Process !**__ ⁺˖ ⸝⸝ 
 
-Progress : {progress}/{quest['goal']}
+﹒ ㆍ**{interaction.user.name}**﹒ㆍ
+
+- -# ** ❮ Quest | เควส ❯** : {quest['name']}
+- -# ** ❮ Progress | ความคืบหน้า ❯ **
+
+({progress}/{quest['goal']})
 """,
         color=discord.Color.orange()
     )
 
     await interaction.response.send_message(embed=embed)
 
+# ---------- QUEST TRACKERS ----------
+
+@bot.event
+async def on_message(message):
+
+    if message.author.bot:
+        return
+
+    users = load_users()
+    uid = str(message.author.id)
+
+    if uid in users and users[uid]["quest"]:
+
+        quest = users[uid]["quest"]
+
+        if quest["type"] == "message":
+
+            users[uid]["progress"] += 1
+
+    save_users(users)
+
+    await bot.process_commands(message)
+
+@bot.event
+async def on_reaction_add(reaction,user):
+
+    if user.bot:
+        return
+
+    users = load_users()
+    uid = str(user.id)
+
+    if uid in users and users[uid]["quest"]:
+
+        quest = users[uid]["quest"]
+
+        if quest["type"] == "reaction":
+
+            users[uid]["progress"] += 1
+
+    save_users(users)
 
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
