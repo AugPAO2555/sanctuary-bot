@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os
-import asyncio
 from datetime import datetime, timedelta, timezone
 
 TOKEN = os.getenv("TOKEN")
@@ -14,6 +13,8 @@ bot = commands.Bot(
     intents=intents
 )
 
+ALLOWED_USER = 996318050682937395
+
 # ========================
 # ICONS
 # ========================
@@ -21,7 +22,6 @@ bot = commands.Bot(
 LETTER_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478335298898362368/121_20260303171623.png"
 MAILBOX_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478333313038160072/120_20260303170821.png"
 
-# Songkran Images
 DAY_IMAGES = {
     1: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771150661357639/126_20260304220611.jpg",
     2: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771186421731418/126_20260304220631.jpg",
@@ -32,16 +32,17 @@ DAY_IMAGES = {
     7: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771401484931184/126_20260304220717.jpg",
 }
 
-# เวลาไทย
 thai_tz = timezone(timedelta(hours=7))
+
 songkran_data = {}
 
 # ========================
 # BOT READY
 # ========================
+
 @bot.event
 async def on_ready():
-    print("=================================")
+    print("============================")
     print(f"Bot online: {bot.user}")
 
     try:
@@ -50,12 +51,42 @@ async def on_ready():
     except Exception as e:
         print("Sync error:", e)
 
-    print("=================================")
+    print("============================")
+
+# ========================
+# HELP COMMAND
+# ========================
+
+@bot.tree.command(name="help", description="Help Desk")
+async def help_cmd(interaction: discord.Interaction):
+
+    embed = discord.Embed(
+        description="""
+_ _
+_ _ _ _ _ _ _ _ _ _  ﹒ㆍ__**Help-desk**__ ﹒ㆍ﹒ _ _
+~~                                 ~~
+_ _
+
+* Main Command !
+  - -# **/set-economy**
+  - -# **/set-mail**
+  - -# **/set-tarot**
+  - -# **/songkran_login**
+  - -# **/ping**
+
+```ยังเป็นระบบเบต้าอยู่คำสั่งเลยน้อย แต่จะพยายามใส่เข้ามาเพิ่มให้ได้เล่นกันนะคั้บ ( อย่าลืมเข้าดิสเพื่อเช็ค update )```
+""",
+        color=0x2f3136
+    )
+
+    await interaction.response.send_message(embed=embed)
 
 # ========================
 # VIEW เปิดจดหมาย
 # ========================
+
 class OpenLetterView(discord.ui.View):
+
     def __init__(self, content: str, sender_name: str):
         super().__init__(timeout=None)
         self.content = content
@@ -81,43 +112,56 @@ class OpenLetterView(discord.ui.View):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ========================
-# /ping
+# PING
 # ========================
+
 @bot.tree.command(name="ping", description="ตรวจสอบสถานะบอท")
 async def ping(interaction: discord.Interaction):
+
     latency = round(bot.latency * 1000)
-    await interaction.response.send_message(f"Pong! 🏓\nLatency: {latency}ms")
+
+    await interaction.response.send_message(
+        f"Pong! 🏓\nLatency: {latency}ms"
+    )
 
 # ========================
-# /songkran_login
+# SONGKRAN LOGIN
 # ========================
-@bot.tree.command(name="songkran_login", description="💦 Songkran Daily Login")
+
+@bot.tree.command(name="songkran_login", description="💦 Songkran Login Event")
 async def songkran_login(interaction: discord.Interaction):
 
+    if interaction.user.id != ALLOWED_USER:
+        await interaction.response.send_message("❌ คำสั่งนี้ใช้ได้เฉพาะเจ้าของบอท", ephemeral=True)
+        return
+
+    now = datetime.now(thai_tz)
+
+    if not (now.month == 4 and 9 <= now.day <= 15):
+        await interaction.response.send_message(
+            "💦 Event นี้ใช้ได้เฉพาะช่วง **9-15 เมษายน** เท่านั้น",
+            ephemeral=True
+        )
+        return
+
     user_id = interaction.user.id
-    today = datetime.now(thai_tz).date()
 
     if user_id not in songkran_data:
-        songkran_data[user_id] = {"last_login": None, "streak": 0}
+        songkran_data[user_id] = {
+            "points": 0,
+            "day": 1
+        }
 
     data = songkran_data[user_id]
 
-    if data["last_login"] == today:
-        embed = discord.Embed(description="💦 วันนี้คุณรับไปแล้ว!", color=0xffcc00)
-        embed.set_image(url=DAY_IMAGES.get(data["streak"], DAY_IMAGES[1]))
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
+    data["points"] += 1
+    data["day"] += 1
 
-    if data["last_login"] == today - timedelta(days=1):
-        data["streak"] += 1
-    else:
-        data["streak"] = 1
+    if data["day"] > 7:
+        data["day"] = 1
+        data["points"] = 0
 
-    if data["streak"] > 7:
-        data["streak"] = 7
-
-    data["last_login"] = today
-    current_day = data["streak"]
+    current_day = data["day"]
 
     embed = discord.Embed(
         description=(
@@ -126,7 +170,7 @@ async def songkran_login(interaction: discord.Interaction):
             f"       ⵌ ได้รับ 1 point\n"
             f"       ⵌ ล็อคอินต่อเนื่องเพื่อรับรางวัล\n\n"
             f"__**🔥 Points Streaks**__\n"
-            f"<:Water_Gun:1478767447413624842> {current_day}"
+            f"<:Water_Gun:1478767447413624842> {data['points']}"
         ),
         color=0x00bfff
     )
