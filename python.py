@@ -22,7 +22,7 @@ bot = commands.Bot(
 LETTER_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478335298898362368/121_20260303171623.png"
 MAILBOX_ICON = "https://cdn.discordapp.com/attachments/1293404792814571552/1478333313038160072/120_20260303170821.png"
 
-# Songkran Images (Day 1-7)
+# Songkran Images
 DAY_IMAGES = {
     1: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771150661357639/126_20260304220611.jpg",
     2: "https://cdn.discordapp.com/attachments/1293404792814571552/1478771186421731418/126_20260304220631.jpg",
@@ -37,16 +37,21 @@ thai_tz = pytz.timezone("Asia/Bangkok")
 songkran_data = {}
 
 # ========================
-# เมื่อ bot online
+# BOT READY
 # ========================
 @bot.event
 async def on_ready():
+    print("=================================")
     print(f"Bot online: {bot.user}")
+    print("Syncing slash commands...")
+
     try:
         synced = await bot.tree.sync()
-        print(f"Slash commands synced: {len(synced)}")
+        print(f"Synced {len(synced)} commands")
     except Exception as e:
-        print(e)
+        print("Sync error:", e)
+
+    print("=================================")
 
 # ========================
 # VIEW เปิดจดหมาย
@@ -88,7 +93,7 @@ async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"Pong! 🏓\nLatency: {latency}ms")
 
 # ========================
-# /announce (Admin Only)
+# /announce
 # ========================
 @bot.tree.command(name="announce", description="สร้างประกาศประชาสัมพันธ์")
 @app_commands.describe(topic="หัวข้อประกาศ", date="วันที่", content="เนื้อหาประกาศ")
@@ -206,7 +211,7 @@ async def mailall(interaction: discord.Interaction, content: str):
     )
 
 # ========================
-# 💦 /songkran_login
+# /songkran_login
 # ========================
 @bot.tree.command(name="songkran_login", description="💦 Songkran Daily Login")
 async def songkran_login(interaction: discord.Interaction):
@@ -221,7 +226,8 @@ async def songkran_login(interaction: discord.Interaction):
 
     if data["last_login"] == today:
         embed = discord.Embed(description="💦 วันนี้คุณรับไปแล้ว!", color=0xffcc00)
-        embed.set_image(url=DAY_IMAGES[data["streak"]])
+        img = DAY_IMAGES.get(data["streak"], DAY_IMAGES[1])
+        embed.set_image(url=img)
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
@@ -248,11 +254,12 @@ async def songkran_login(interaction: discord.Interaction):
         color=0x00bfff
     )
 
-    embed.set_image(url=DAY_IMAGES[current_day])
+    img = DAY_IMAGES.get(current_day, DAY_IMAGES[1])
+    embed.set_image(url=img)
 
     await interaction.response.send_message(embed=embed)
 
 # ========================
-# Run bot
+# RUN BOT
 # ========================
 bot.run(TOKEN)
