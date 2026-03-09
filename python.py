@@ -21,6 +21,8 @@ WAITING = "<:Waiting_for_approval:1393514897400135812>"
 DENIED = "<:denied:1319887409864900608>"
 
 
+# ---------------- JSON ----------------
+
 def load(file):
     try:
         with open(file, "r", encoding="utf-8") as f:
@@ -28,25 +30,141 @@ def load(file):
     except:
         return {}
 
-
 def save(file, data):
     with open(file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
 
+# ---------------- RESPONSE SYSTEM ----------------
+
+async def denied(interaction, text):
+    await interaction.response.send_message(
+        f"{DENIED} : {text}",
+        ephemeral=True
+    )
+
+
+async def approved(interaction, text):
+    await interaction.response.send_message(
+        f"{APPROVED} : {text}"
+    )
+
+
+# ---------------- READY ----------------
+
 @bot.event
 async def on_ready():
-    try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} commands")
-    except Exception as e:
-        print(e)
-
+    await bot.tree.sync()
     print(f"Bot Ready | {bot.user}")
 
 
-# รับเควสรายวัน
-@bot.tree.command(name="dailyquest", description="รับเควสรายวัน")
+# ---------------- PING ----------------
+
+@bot.tree.command(name="ping")
+async def ping(interaction: discord.Interaction):
+
+    latency = round(bot.latency * 1000)
+
+    await interaction.response.send_message(
+f"""
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+🏓 Pong
+
+Latency : {latency} ms
+System : Online
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+"""
+    )
+
+
+# ---------------- HELP ----------------
+
+@bot.tree.command(name="help")
+async def help_cmd(interaction: discord.Interaction):
+
+    await interaction.response.send_message(
+"""
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+📖 Command List
+
+🎮 Quest
+/dailyquest
+/process
+/complete
+/cancelquest
+
+📩 Mail
+/letter
+/mailall
+
+📢 Server
+/announce
+/ping
+/help
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+"""
+    )
+
+
+# ---------------- ANNOUNCE ----------------
+
+@bot.tree.command(name="announce")
+@app_commands.describe(
+topic="หัวข้อ",
+date="วันที่",
+message="รายละเอียด"
+)
+async def announce(
+interaction: discord.Interaction,
+topic: str,
+date: str,
+message: str
+):
+
+    if not interaction.user.guild_permissions.administrator:
+        await denied(interaction,"คุณไม่มีสิทธิ์ใช้คำสั่งประกาศ")
+        return
+
+    text = f"""
+ㅤㅤㅤㅤㅤㅤㅤ❮ ประชาสัมพันธ์ ❯ㅤㅤㅤㅤㅤㅤㅤ
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+
+( Topic | หัวข้อ ) : {topic}
+( Date | วันที่ ) : {date}
+
+{message}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+"""
+
+    await interaction.response.send_message(text)
+
+
+# ---------------- QUEST LIST ----------------
+
+@bot.tree.command(name="questlist")
+async def questlist(interaction: discord.Interaction):
+
+    quests = load(QUEST_FILE)
+
+    text = "\n".join([f"📜 {q}" for q in quests])
+
+    await interaction.response.send_message(
+f"""
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+📜 Quest List
+
+{text}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+"""
+    )
+
+
+# ---------------- DAILY QUEST ----------------
+
+@bot.tree.command(name="dailyquest")
 async def dailyquest(interaction: discord.Interaction):
 
     quests = load(QUEST_FILE)
@@ -56,154 +174,156 @@ async def dailyquest(interaction: discord.Interaction):
     today = str(datetime.date.today())
 
     if uid not in users:
-        users[uid] = {
-            "completed": [],
-            "current": None,
-            "date": ""
-        }
+        users[uid] = {"quests": [], "date": ""}
 
     if users[uid]["date"] == today:
-        await interaction.response.send_message(
-            f"{DENIED} คุณรับเควสวันนี้แล้ว",
-            ephemeral=True
-        )
+        await denied(interaction,"คุณรับเควสวันนี้แล้ว")
         return
 
-    available = [q for q in quests if q not in users[uid]["completed"]]
+    quest = random.choice(list(quests.keys()))
 
-    if not available:
-        users[uid]["completed"] = []
-        available = list(quests.keys())
-
-    quest = random.choice(available)
-
-    users[uid]["current"] = quest
+    users[uid]["quests"].append(quest)
     users[uid]["date"] = today
 
     save(USER_FILE, users)
 
     await interaction.response.send_message(
-        f"{WAITING} **Daily Quest**\n\n📜 {quest}"
+f"""
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+📜 Daily Quest
+
+Mission :
+{quest}
+
+Use /complete when finished
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+"""
     )
 
 
-# ดูเควสที่กำลังทำ
-@bot.tree.command(name="process", description="ดูเควสที่กำลังทำ")
+# ---------------- PROCESS ----------------
+
+@bot.tree.command(name="process")
 async def process(interaction: discord.Interaction):
 
     users = load(USER_FILE)
     uid = str(interaction.user.id)
 
-    if uid not in users or not users[uid]["current"]:
-        await interaction.response.send_message(
-            f"{DENIED} คุณยังไม่มีเควส",
-            ephemeral=True
-        )
+    if uid not in users or not users[uid]["quests"]:
+        await denied(interaction,"คุณยังไม่มีเควสที่กำลังดำเนินการ")
         return
 
-    quest = users[uid]["current"]
+    text = "\n".join([f"📜 {q}" for q in users[uid]["quests"]])
 
     await interaction.response.send_message(
-        f"{WAITING} **Quest in Progress**\n\n📜 {quest}"
+f"""
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+⏳ Quest In Progress
+
+{text}
+
+▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
+"""
     )
 
 
-# ส่งเควส
-@bot.tree.command(name="complete", description="ส่งเควส")
-async def complete(interaction: discord.Interaction):
+# ---------------- COMPLETE ----------------
+
+@bot.tree.command(name="complete")
+@app_commands.describe(quest="ชื่อเควส")
+async def complete(interaction: discord.Interaction, quest: str):
 
     users = load(USER_FILE)
     uid = str(interaction.user.id)
 
-    if uid not in users or not users[uid]["current"]:
-        await interaction.response.send_message(
-            f"{DENIED} ไม่มีเควสให้ส่ง",
-            ephemeral=True
-        )
+    if uid not in users or quest not in users[uid]["quests"]:
+        await denied(interaction,"ไม่พบเควสนี้ในรายการของคุณ")
         return
 
-    quest = users[uid]["current"]
-
-    users[uid]["completed"].append(quest)
-    users[uid]["current"] = None
+    users[uid]["quests"].remove(quest)
 
     save(USER_FILE, users)
 
-    await interaction.response.send_message(
-        f"{APPROVED} **Quest Completed!**\n📜 {quest}"
-    )
+    await approved(interaction,f"Quest Completed : {quest}")
 
 
-# Owner เพิ่มเควส
-@bot.tree.command(name="addquest", description="เพิ่มเควส")
-@app_commands.describe(text="ชื่อเควส")
-async def addquest(interaction: discord.Interaction, text: str):
+# ---------------- CANCEL QUEST ----------------
 
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message(
-            f"{DENIED} Owner Only",
-            ephemeral=True
-        )
-        return
-
-    quests = load(QUEST_FILE)
-
-    quests[text] = True
-
-    save(QUEST_FILE, quests)
-
-    await interaction.response.send_message(
-        f"{APPROVED} เพิ่มเควสแล้ว\n📜 {text}"
-    )
-
-
-# Owner รีเซ็ตเควส
-@bot.tree.command(name="resetquest", description="รีเซ็ตเควสทั้งหมด")
-async def resetquest(interaction: discord.Interaction):
-
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message(
-            f"{DENIED} Owner Only",
-            ephemeral=True
-        )
-        return
-
-    save(USER_FILE, {})
-
-    await interaction.response.send_message(
-        f"{APPROVED} รีเซ็ตเควสทั้งหมดแล้ว"
-    )
-
-
-# ตรวจ Reaction Quest
-@bot.event
-async def on_reaction_add(reaction, user):
-
-    if user.bot:
-        return
+@bot.tree.command(name="cancelquest")
+@app_commands.describe(quest="ชื่อเควส")
+async def cancelquest(interaction: discord.Interaction, quest: str):
 
     users = load(USER_FILE)
-    uid = str(user.id)
+    uid = str(interaction.user.id)
 
-    if uid not in users:
+    if uid not in users or quest not in users[uid]["quests"]:
+        await denied(interaction,"ไม่พบเควสนี้")
         return
 
-    if users[uid]["current"] != "React to any message":
-        return
-
-    users[uid]["completed"].append(users[uid]["current"])
-    users[uid]["current"] = None
+    users[uid]["quests"].remove(quest)
 
     save(USER_FILE, users)
 
-    await reaction.message.channel.send(
-        f"{APPROVED} {user.mention} Quest Completed!"
+    await approved(interaction,"ยกเลิกเควสสำเร็จ")
+
+
+# ---------------- LETTER ----------------
+
+@bot.tree.command(name="letter")
+@app_commands.describe(target="ผู้รับ",message="ข้อความ")
+async def letter(interaction: discord.Interaction,target: discord.Member,message: str):
+
+    embed = discord.Embed(
+        title="📬 Sanctuary Frontier Mail",
+        description=f"""
+﹒ˇ﹒__Secret Sealed Just for You__﹒
+
+Dear {target.name}
+
+{message}
+""",
+        color=discord.Color.gold()
     )
+
+    try:
+
+        await target.send(embed=embed)
+
+        await approved(interaction,"ส่งจดหมายเรียบร้อย")
+
+    except:
+
+        await denied(interaction,"ไม่สามารถส่ง DM ได้")
+
+
+# ---------------- MAIL ALL ----------------
+
+@bot.tree.command(name="mailall")
+@app_commands.describe(message="ข้อความ")
+async def mailall(interaction: discord.Interaction,message: str):
+
+    if not interaction.user.guild_permissions.administrator:
+        await denied(interaction,"คุณไม่มีสิทธิ์ใช้คำสั่งนี้")
+        return
+
+    count = 0
+
+    for member in interaction.guild.members:
+
+        if member.bot:
+            continue
+
+        try:
+
+            await member.send(message)
+
+            count += 1
+
+        except:
+            pass
+
+    await approved(interaction,f"ส่งจดหมายแล้ว {count} คน")
 
 
 TOKEN = os.getenv("TOKEN")
-
-if not TOKEN:
-    print("TOKEN NOT FOUND")
-
 bot.run(TOKEN)
